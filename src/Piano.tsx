@@ -1,53 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import svgPaths from "../imports/svg-yoltbw2dg9";
-
-// ─── Audio Engine ──────────────────────────────────────────────────────────────
-
-let _audioCtx: AudioContext | null = null;
-
-function getAudioCtx(): AudioContext {
-  if (!_audioCtx) {
-    _audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  }
-  if (_audioCtx.state === "suspended") {
-    _audioCtx.resume();
-  }
-  return _audioCtx;
-}
-
-function playPianoNote(frequency: number): void {
-  const ctx = getAudioCtx();
-  const t = ctx.currentTime;
-
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0, t);
-  env.gain.linearRampToValueAtTime(0.55, t + 0.008);
-  env.gain.exponentialRampToValueAtTime(0.28, t + 0.18);
-  env.gain.exponentialRampToValueAtTime(0.0001, t + 2.0);
-  env.connect(ctx.destination);
-
-  // Sine harmonics simulate piano timbre
-  const partials: [number, number][] = [[1, 0.50], [2, 0.22], [3, 0.10], [4, 0.05], [5, 0.025]];
-  for (const [ratio, amp] of partials) {
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = frequency * ratio;
-    g.gain.value = amp;
-    osc.connect(g);
-    g.connect(env);
-    osc.start(t);
-    osc.stop(t + 2.2);
-  }
-}
+import { FREQS, playPianoNote } from "./music";
 
 // ─── Key Data ──────────────────────────────────────────────────────────────────
-
-const FREQS: Record<string, number> = {
-  C4: 261.63, Cs4: 277.18, D4: 293.66, Ds4: 311.13,
-  E4: 329.63, F4: 349.23, Fs4: 369.99, G4: 392.00,
-  Gs4: 415.30, A4: 440.00, As4: 466.16, B4: 493.88,
-};
 
 interface WhiteKeyDef {
   id: string; label: string;
@@ -166,10 +128,30 @@ function HdrBtnFilter({ id, innerDx }: { id: string; innerDx: number }) {
 
 interface FloatingNote { id: number; left: number }
 
-export default function Piano() {
+export interface PianoHandle {
+  /** Play a note programmatically (used by "Watch demo" and composition replay). */
+  press: (keyId: string) => void;
+}
+
+interface PianoProps {
+  /** Key ids to highlight with a pulsing glow, e.g. the next note in a song. */
+  highlightKeys?: string[];
+  /** Fires whenever a note is played — by pointer, keyboard, or `press()`. */
+  onNote?: (keyId: string) => void;
+}
+
+const Piano = forwardRef<PianoHandle, PianoProps>(function Piano(
+  { highlightKeys, onNote },
+  ref,
+) {
   const [pressed, setPressed] = useState<Set<string>>(new Set());
   const [floats, setFloats] = useState<FloatingNote[]>([]);
   const nextId = useRef(0);
+
+  const onNoteRef = useRef(onNote);
+  useEffect(() => { onNoteRef.current = onNote; }, [onNote]);
+
+  const glow = new Set(highlightKeys ?? []);
 
   const triggerNote = useCallback((keyId: string) => {
     const freq = FREQS[keyId];
@@ -184,6 +166,8 @@ export default function Piano() {
     const id = ++nextId.current;
     setFloats(prev => [...prev, { id, left }]);
     setTimeout(() => setFloats(prev => prev.filter(n => n.id !== id)), 1200);
+
+    onNoteRef.current?.(keyId);
   }, []);
 
   const releaseNote = useCallback((keyId: string) => {
@@ -193,6 +177,13 @@ export default function Piano() {
       return next;
     });
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    press(keyId: string) {
+      triggerNote(keyId);
+      window.setTimeout(() => releaseNote(keyId), 190);
+    },
+  }), [triggerNote, releaseNote]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -309,8 +300,23 @@ export default function Piano() {
       {/* White Keys */}
       {WHITE_KEYS.map(k => {
         const isPressed = pressed.has(k.id);
-        const fill = isPressed ? "#b8ccf2" : "#EEEEF0";
+        const isGlow = glow.has(k.id);
+        const fill = isPressed ? "#b8ccf2" : isGlow ? "#dfe9ff" : "#EEEEF0";
         const filterId = `wkf-${k.id}`;
+
+        const glowRing = isGlow ? (
+          <div
+            className="piano-key-glow"
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "2px 2px 10px 10px",
+              background: "rgba(120,170,255,0.16)",
+              pointerEvents: "none",
+              zIndex: 4,
+            }}
+          />
+        ) : null;
 
         const svgEl = (
           <div
@@ -395,6 +401,7 @@ export default function Piano() {
               >
                 {svgEl}
               </div>
+              {glowRing}
               {noteLabel}
             </div>
           );
@@ -416,6 +423,7 @@ export default function Piano() {
             <div style={{ position: "relative", width: "100%", height: "100%" }}>
               {svgEl}
             </div>
+            {glowRing}
             {noteLabel}
           </div>
         );
@@ -424,6 +432,7 @@ export default function Piano() {
       {/* Black Keys — rendered after white keys so they appear on top */}
       {BLACK_KEYS.map(k => {
         const isPressed = pressed.has(k.id);
+        const isGlow = glow.has(k.id);
         return (
           <div
             key={k.id}
@@ -447,10 +456,23 @@ export default function Piano() {
                 position: "absolute",
                 inset: 0,
                 borderRadius: "inherit",
-                background: isPressed ? "#b8ccf2" : "#eeeef0",
+                background: isPressed ? "#b8ccf2" : isGlow ? "#c9d9ff" : "#eeeef0",
                 transition: "background 0.05s",
               }}
             />
+            {/* Next-note glow */}
+            {isGlow && (
+              <div
+                className="piano-key-glow"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "inherit",
+                  pointerEvents: "none",
+                  zIndex: 2,
+                }}
+              />
+            )}
             {/* Inner shadow */}
             <div
               style={{
@@ -528,4 +550,6 @@ export default function Piano() {
       />
     </div>
   );
-}
+});
+
+export default Piano;

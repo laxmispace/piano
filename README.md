@@ -11,6 +11,15 @@ style envelope) — no audio samples required.
 - Computer-keyboard control: `Z S X D C · V G B H N J M`
 - Real-time synthesized piano timbre via Web Audio API
 - Pixel-accurate key shapes imported from a Figma design
+- **Learn a song** — step-by-step tutorials for Beethoven's *Ode to Joy* and
+  *Für Elise* and Hans Zimmer's *He's a Pirate*. The next key glows on the
+  keyboard and the panel shows which key to press; "Watch demo" plays it for you.
+- **Composition strip** — your last notes are captured as you play so you can
+  replay them with their original timing, or clear and start again.
+- **Mobile landscape** — the keyboard fills the screen and the controls float
+  over it; a hint prompts you to rotate from portrait.
+
+Songs live in [src/music.ts](src/music.ts) and are easy to edit or extend.
 
 ## Getting started
 
