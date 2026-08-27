@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+@keyframes piano-float {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-56px) scale(1.5); }
+}
+
+.piano-float-note {
+  animation: piano-float 1.1s ease-out forwards;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
