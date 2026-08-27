@@ -1,0 +1,10 @@
+{
+  "description": "Experience an interactive piano that accurately mimics real-life sounds and visuals, allowing users to play notes and enjoy music creation.",
+  "robots": {
+    "index": true
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
