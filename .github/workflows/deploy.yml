@@ -42,7 +42,7 @@ jobs:
         run: pnpm build
         env:
           # Serve assets from the project-pages subpath (https://<user>.github.io/piano/)
-          FIGMA_PUBLIC_URL: ${{ steps.pages.outputs.base_url }}
+          FIGMA_PUBLIC_URL: /piano
 
       - name: Add SPA 404 fallback
         run: cp dist/index.html dist/404.html
